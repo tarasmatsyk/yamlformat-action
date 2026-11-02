@@ -76,6 +76,9 @@ yamlfmt_args=(-dry -quiet)
 if [[ -n "$INPUT_CONFIG_FILE" ]]; then yamlfmt_args+=(-conf "$INPUT_CONFIG_FILE"); fi
 if [[ "$INPUT_DSTAR" == "true" ]]; then yamlfmt_args+=(-dstar); fi
 path_check_args=("${yamlfmt_args[@]}" -debug paths)
+yamlfmt_lint_args=(-lint)
+if [[ -n "$INPUT_CONFIG_FILE" ]]; then yamlfmt_lint_args+=(-conf "$INPUT_CONFIG_FILE"); fi
+if [[ "$INPUT_DSTAR" == "true" ]]; then yamlfmt_lint_args+=(-dstar); fi
 
 # Check each input independently so one matching path cannot hide another
 # input that matched no YAML files. Keep yamlfmt authoritative for expansion.
@@ -94,7 +97,7 @@ for path in "${paths[@]}"; do
   fi
 done
 
-yamlfmt_stderr_file="${RUNNER_TEMP}/yamlfmt-stderr-${RANDOM}"
+yamlfmt_stderr_file="$(mktemp "${RUNNER_TEMP}/yamlfmt-stderr.XXXXXX")"
 set +e
 yamlfmt_output="$("${install_dir}/yamlfmt" "${yamlfmt_args[@]}" "${paths[@]}" 2>"$yamlfmt_stderr_file")"
 yamlfmt_status=$?
@@ -102,20 +105,31 @@ set -e
 yamlfmt_stderr="$(cat "$yamlfmt_stderr_file")"
 rm -f "$yamlfmt_stderr_file"
 
-# Retain the full output above for checks, but omit verbose debug lines in logs.
-grep -v '^\[DEBUG\]' <<< "$yamlfmt_output" || true
-grep -v '^\[DEBUG\]' <<< "$yamlfmt_stderr" >&2 || true
 if [[ "$yamlfmt_status" -ne 0 ]]; then
+  grep -v '^\[DEBUG\]' <<< "$yamlfmt_output" || true
+  grep -v '^\[DEBUG\]' <<< "$yamlfmt_stderr" >&2 || true
   set_failure_reason yamlfmt-error
   exit "$yamlfmt_status"
 fi
 
 # A quiet dry run prints paths that would change and leaves files untouched.
 if [[ -n "$yamlfmt_output" ]]; then
-  echo "These YAML files need formatting:" >&2
-  grep -v '^\[DEBUG\]' <<< "$yamlfmt_output" || true
+  yamlfmt_paths=()
+  while IFS= read -r changed_path || [[ -n "$changed_path" ]]; do
+    [[ -z "$changed_path" ]] && continue
+    [[ "$changed_path" == '[DEBUG]'* ]] && continue
+    yamlfmt_paths+=("$changed_path")
+  done <<< "$yamlfmt_output"
+
+  if [[ ${#yamlfmt_paths[@]} -gt 0 ]]; then
+    echo "Formatting differences:" >&2
+    set +e
+    "${install_dir}/yamlfmt" "${yamlfmt_lint_args[@]}" "${yamlfmt_paths[@]}"
+    set -e
+  fi
   set_failure_reason formatting-failed
   exit 1
 fi
 
+grep -v '^\[DEBUG\]' <<< "$yamlfmt_stderr" >&2 || true
 exit 0
