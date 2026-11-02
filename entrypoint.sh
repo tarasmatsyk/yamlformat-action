@@ -72,7 +72,7 @@ if [[ ${#paths[@]} -eq 0 ]]; then
   exit 1
 fi
 
-yamlfmt_args=(-lint)
+yamlfmt_args=(-lint -quiet)
 if [[ -n "$INPUT_CONFIG_FILE" ]]; then yamlfmt_args+=(-conf "$INPUT_CONFIG_FILE"); fi
 if [[ "$INPUT_DSTAR" == "true" ]]; then yamlfmt_args+=(-dstar); fi
 path_check_args=("${yamlfmt_args[@]}" -debug paths)
@@ -106,10 +106,12 @@ rm -f "$yamlfmt_stderr_file"
 grep -v '^\[DEBUG\]' <<< "$yamlfmt_output" || true
 grep -v '^\[DEBUG\]' <<< "$yamlfmt_stderr" >&2 || true
 if [[ "$yamlfmt_status" -ne 0 ]]; then
-  if [[ -n "$yamlfmt_stderr" ]]; then
-    set_failure_reason yamlfmt-error
-  else
+  # In lint mode, yamlfmt's quiet output lists only files needing formatting.
+  # Config, parse, and operational errors are reported on stderr instead.
+  if [[ -n "$yamlfmt_output" ]]; then
     set_failure_reason formatting-failed
+  else
+    set_failure_reason yamlfmt-error
   fi
 fi
 exit "$yamlfmt_status"

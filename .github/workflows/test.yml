@@ -39,6 +39,7 @@ jobs:
 
       - name: Reject invalid yamlfmt configuration
         id: invalid-config
+        if: always()
         uses: ./
         continue-on-error: true
         with:
@@ -56,6 +57,7 @@ jobs:
 
       - name: Reject patterns with no matches
         id: no-match
+        if: always()
         uses: ./
         continue-on-error: true
         with:
@@ -73,6 +75,7 @@ jobs:
 
       - name: Reject one unmatched pattern alongside a matching path
         id: partial-no-match
+        if: always()
         uses: ./
         continue-on-error: true
         with:
@@ -92,6 +95,7 @@ jobs:
 
       - name: Reject empty folder without doublestar
         id: empty-folder
+        if: always()
         uses: ./
         continue-on-error: true
         with:
