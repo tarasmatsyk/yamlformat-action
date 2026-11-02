@@ -19,37 +19,40 @@ jobs:
       - uses: actions/checkout@v4
       - uses: tarasmatsyk/yamlformat-action@v0.1.0
         with:
-          directories: |
+          paths: |
             charts
             deploy/helm
           config-file: .github/.yamlfmt
-          exclude: |
-            charts/generated
 ```
 
-`directories` accepts newline-separated file or directory paths, resolved from the repository root.
-Directories are searched recursively for `.yaml` and `.yml` files. It defaults to `.`. The action's
-`yamlfmt-version` defaults to `v0.21.0`.
+`paths` accepts newline-separated file paths or directory paths. Directories are searched recursively
+for `.yaml` and `.yml` files in the default mode. The input defaults to `.`. For glob patterns, enable
+`dstar`.
+
+`yamlfmt-version` defaults to `v0.21.0`; a leading `v` is optional.
 
 ### Inputs
 
 | Input | Description | Default |
 | --- | --- | --- |
-| `directories` | Newline-separated files or directories to check | `.` |
+| `paths` | Newline-separated file or directory paths; glob patterns with `dstar: true` | `.` |
+| `dstar` | Enable yamlfmt doublestar glob mode; provide patterns rather than directory paths | `false` |
 | `config-file` | Config file path, passed to yamlfmt as `-conf` | Auto-discover config |
-| `exclude` | Newline-separated patterns to exclude | None |
-| `yamlfmt-version` | yamlfmt release tag to install | `v0.21.0` |
+| `yamlfmt-version` | yamlfmt release version, with or without a leading `v` | `v0.21.0` |
 
-Use `exclude` for patterns that should be skipped:
+For doublestar patterns, set `dstar: true`:
 
 ```yaml
 - uses: tarasmatsyk/yamlformat-action@v0.1.0
   with:
-    directories: charts
-    exclude: |
-      charts/generated
-      charts/my-chart/templates
+    paths: |
+      charts/**/*.yaml
+      charts/**/*.yml
+    dstar: true
+    config-file: .github/.yamlfmt
 ```
+
+This action verifies signed yamlfmt release checksums, available upstream starting with v0.14.0.
 
 ## Helm charts
 

@@ -1,19 +1,20 @@
 name: yamlformat-action
-description: Check YAML formatting in selected directories with Google's yamlfmt
+description: Check YAML formatting in selected paths with Google's yamlfmt
 author: tarasmatsyk
 branding:
   icon: file-text
   color: blue
 inputs:
-  directories:
-    description: Newline-separated files or directories to check (directories are searched recursively)
+  paths:
+    description: Newline-separated files, directories, or glob patterns to check
     required: false
     default: .
+  dstar:
+    description: Enable yamlfmt doublestar glob patterns; use patterns instead of directory paths
+    required: false
+    default: 'false'
   config-file:
     description: Path to the yamlfmt config file, passed as -conf
-    required: false
-  exclude:
-    description: Newline-separated yamlfmt exclude patterns
     required: false
   yamlfmt-version:
     description: yamlfmt release version to install
@@ -23,13 +24,13 @@ runs:
   using: composite
   steps:
     - name: Install Cosign
-      uses: sigstore/cosign-installer@v3.10.1
+      uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
     - name: Install yamlfmt and check formatting
       shell: bash
       env:
-        INPUT_DIRECTORIES: ${{ inputs.directories }}
+        INPUT_PATHS: ${{ inputs.paths }}
+        INPUT_DSTAR: ${{ inputs.dstar }}
         INPUT_CONFIG_FILE: ${{ inputs.config-file }}
-        INPUT_EXCLUDE: ${{ inputs.exclude }}
         YAMLFMT_VERSION: ${{ inputs.yamlfmt-version }}
       run: |
         set -euo pipefail
@@ -46,8 +47,9 @@ runs:
         esac
 
         version="${YAMLFMT_VERSION#v}"
+        version_tag="v${version}"
         archive="yamlfmt_${version}_${platform}.tar.gz"
-        release_url="https://github.com/google/yamlfmt/releases/download/${YAMLFMT_VERSION}"
+        release_url="https://github.com/google/yamlfmt/releases/download/${version_tag}"
         install_dir="${RUNNER_TEMP}/yamlfmt-${version}"
         mkdir -p "$install_dir"
         curl --fail --silent --show-error --location \
@@ -81,10 +83,10 @@ runs:
           path="${path%"${path##*[![:space:]]}"}"
           [[ -z "$path" ]] && continue
           paths+=("$path")
-        done <<< "$INPUT_DIRECTORIES"
+        done <<< "$INPUT_PATHS"
 
         if [[ ${#paths[@]} -eq 0 ]]; then
-          echo "No directories or files were provided." >&2
+          echo "No file paths or patterns were provided." >&2
           exit 1
         fi
 
@@ -92,10 +94,7 @@ runs:
         if [[ -n "$INPUT_CONFIG_FILE" ]]; then
           yamlfmt_args+=(-conf "$INPUT_CONFIG_FILE")
         fi
-        while IFS= read -r pattern || [[ -n "$pattern" ]]; do
-          pattern="${pattern#"${pattern%%[![:space:]]*}"}"
-          pattern="${pattern%"${pattern##*[![:space:]]}"}"
-          [[ -z "$pattern" ]] && continue
-          yamlfmt_args+=(-exclude "$pattern")
-        done <<< "$INPUT_EXCLUDE"
+        if [[ "$INPUT_DSTAR" == "true" ]]; then
+          yamlfmt_args+=(-dstar)
+        fi
         "${install_dir}/yamlfmt" "${yamlfmt_args[@]}" "${paths[@]}"
