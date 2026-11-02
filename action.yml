@@ -12,8 +12,8 @@ inputs:
   config-file:
     description: Path to the yamlfmt config file, passed as -conf
     required: false
-  args:
-    description: Extra yamlfmt arguments, one argument per line
+  exclude:
+    description: Newline-separated yamlfmt exclude patterns
     required: false
   yamlfmt-version:
     description: yamlfmt release version to install
@@ -29,7 +29,7 @@ runs:
       env:
         INPUT_DIRECTORIES: ${{ inputs.directories }}
         INPUT_CONFIG_FILE: ${{ inputs.config-file }}
-        INPUT_ARGS: ${{ inputs.args }}
+        INPUT_EXCLUDE: ${{ inputs.exclude }}
         YAMLFMT_VERSION: ${{ inputs.yamlfmt-version }}
       run: |
         set -euo pipefail
@@ -92,9 +92,10 @@ runs:
         if [[ -n "$INPUT_CONFIG_FILE" ]]; then
           yamlfmt_args+=(-conf "$INPUT_CONFIG_FILE")
         fi
-        while IFS= read -r arg || [[ -n "$arg" ]]; do
-          [[ -z "$arg" ]] && continue
-          yamlfmt_args+=("$arg")
-        done <<< "$INPUT_ARGS"
-
+        while IFS= read -r pattern || [[ -n "$pattern" ]]; do
+          pattern="${pattern#"${pattern%%[![:space:]]*}"}"
+          pattern="${pattern%"${pattern##*[![:space:]]}"}"
+          [[ -z "$pattern" ]] && continue
+          yamlfmt_args+=(-exclude "$pattern")
+        done <<< "$INPUT_EXCLUDE"
         "${install_dir}/yamlfmt" "${yamlfmt_args[@]}" "${paths[@]}"
