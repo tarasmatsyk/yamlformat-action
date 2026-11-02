@@ -1,8 +1,8 @@
 # yamlformat-action
 
 Check YAML formatting with [Google's yamlfmt](https://github.com/google/yamlfmt). The action fails when
-files need formatting and never changes them. It downloads a pinned yamlfmt release and verifies the
-binary archive against the release checksum.
+files need formatting and never changes them. It verifies Google's signed checksum manifest, then
+checks the downloaded binary archive against that manifest.
 
 ## Usage
 
@@ -17,33 +17,44 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: tarasmatsyk/yamlfmt-action@v0.1.0
+      - uses: tarasmatsyk/yamlformat-action@v0.1.0
         with:
           directories: |
             charts
             deploy/helm
+          config-file: .github/.yamlfmt
 ```
 
 `directories` accepts newline-separated file or directory paths, resolved from the repository root.
-Directories are searched recursively for `.yaml` and `.yml` files. It defaults to `.`.
+Directories are searched recursively for `.yaml` and `.yml` files. It defaults to `.`. The action's
+`yamlfmt-version` defaults to `v0.21.0`.
 
-To select a different yamlfmt release:
+### Inputs
+
+| Input | Description | Default |
+| --- | --- | --- |
+| `directories` | Newline-separated files or directories to check | `.` |
+| `config-file` | Config file path, passed to yamlfmt as `-conf` | Auto-discover config |
+| `args` | Extra yamlfmt arguments, one argument per line | None |
+| `yamlfmt-version` | yamlfmt release tag to install | `v0.21.0` |
+
+For example, pass an additional exclude pattern with `args`:
 
 ```yaml
-- uses: tarasmatsyk/yamlfmt-action@v0.1.0
+- uses: tarasmatsyk/yamlformat-action@v0.1.0
   with:
-    directories: charts/my-chart
-    yamlfmt-version: v0.20.0
+    directories: charts
+    config-file: .github/.yamlfmt
+    args: |
+      -exclude
+      charts/generated
 ```
 
-## Configuration
+## Helm charts
 
-Add a `.yamlfmt` file at your repository root to configure formatting and which files yamlfmt should
-process. See [yamlfmt configuration](https://github.com/google/yamlfmt/blob/main/docs/config-file.md).
-
-Helm chart files in `templates/` may contain Go template expressions and may not be valid YAML until
-Helm renders them. Configure yamlfmt to skip those files or pass paths containing plain YAML, such as
-`values.yaml` and `Chart.yaml`. Use `helm lint` separately to check the chart.
+Helm files in `templates/` may contain Go template expressions and may not be valid YAML until Helm
+renders them. Use a yamlfmt config to exclude those files or pass paths containing plain YAML, such as
+`values.yaml` and `Chart.yaml`. Run `helm lint` separately to check the chart.
 
 ## Supported runners
 

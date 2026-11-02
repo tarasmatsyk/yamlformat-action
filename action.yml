@@ -9,17 +9,27 @@ inputs:
     description: Newline-separated files or directories to check (directories are searched recursively)
     required: false
     default: .
+  config-file:
+    description: Path to the yamlfmt config file, passed as -conf
+    required: false
+  args:
+    description: Extra yamlfmt arguments, one argument per line
+    required: false
   yamlfmt-version:
     description: yamlfmt release version to install
     required: false
-    default: v0.20.0
+    default: v0.21.0
 runs:
   using: composite
   steps:
+    - name: Install Cosign
+      uses: sigstore/cosign-installer@v3.10.1
     - name: Install yamlfmt and check formatting
       shell: bash
       env:
         INPUT_DIRECTORIES: ${{ inputs.directories }}
+        INPUT_CONFIG_FILE: ${{ inputs.config-file }}
+        INPUT_ARGS: ${{ inputs.args }}
         YAMLFMT_VERSION: ${{ inputs.yamlfmt-version }}
       run: |
         set -euo pipefail
@@ -42,9 +52,21 @@ runs:
         mkdir -p "$install_dir"
         curl --fail --silent --show-error --location \
           "${release_url}/${archive}" -o "${install_dir}/${archive}"
-        curl --fail --silent --show-error --location \
-          "${release_url}/checksums.txt" -o "${install_dir}/checksums.txt"
-        checksum_line="$(grep -F "  ${archive}" "${install_dir}/checksums.txt")"
+        for file in checksums.txt checksums.txt.pem checksums.txt.sig; do
+          curl --fail --silent --show-error --location \
+            "${release_url}/${file}" -o "${install_dir}/${file}"
+        done
+        cosign verify-blob "${install_dir}/checksums.txt" \
+          --certificate "${install_dir}/checksums.txt.pem" \
+          --signature "${install_dir}/checksums.txt.sig" \
+          --certificate-identity-regexp 'https://github\.com/google/yamlfmt/\.github/workflows/.+' \
+          --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+
+        checksum_line="$(awk -v asset="$archive" '$2 == asset { print $0 }' "${install_dir}/checksums.txt")"
+        if [[ -z "$checksum_line" ]]; then
+          echo "No checksum found for ${archive}." >&2
+          exit 1
+        fi
         if command -v sha256sum >/dev/null 2>&1; then
           printf '%s\n' "$checksum_line" | (cd "$install_dir" && sha256sum --check --status)
         else
@@ -66,4 +88,13 @@ runs:
           exit 1
         fi
 
-        "${install_dir}/yamlfmt" -lint "${paths[@]}"
+        yamlfmt_args=(-lint)
+        if [[ -n "$INPUT_CONFIG_FILE" ]]; then
+          yamlfmt_args+=(-conf "$INPUT_CONFIG_FILE")
+        fi
+        while IFS= read -r arg || [[ -n "$arg" ]]; do
+          [[ -z "$arg" ]] && continue
+          yamlfmt_args+=("$arg")
+        done <<< "$INPUT_ARGS"
+
+        "${install_dir}/yamlfmt" "${yamlfmt_args[@]}" "${paths[@]}"
