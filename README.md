@@ -1,4 +1,4 @@
-# yamlfmt action
+# yamlformat
 
 Check YAML formatting with [Google's yamlfmt](https://github.com/google/yamlfmt). The action fails when
 files need formatting and never changes them. It downloads a pinned yamlfmt release and verifies the
