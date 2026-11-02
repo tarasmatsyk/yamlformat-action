@@ -1,0 +1,69 @@
+name: yamlfmt
+description: Check YAML formatting in selected directories with Google's yamlfmt
+author: tarasmatsyk
+branding:
+  icon: file-text
+  color: blue
+inputs:
+  directories:
+    description: Newline-separated files or directories to check (directories are searched recursively)
+    required: false
+    default: .
+  yamlfmt-version:
+    description: yamlfmt release version to install
+    required: false
+    default: v0.20.0
+runs:
+  using: composite
+  steps:
+    - name: Install yamlfmt and check formatting
+      shell: bash
+      env:
+        INPUT_DIRECTORIES: ${{ inputs.directories }}
+        YAMLFMT_VERSION: ${{ inputs.yamlfmt-version }}
+      run: |
+        set -euo pipefail
+
+        case "${RUNNER_OS}/${RUNNER_ARCH}" in
+          Linux/X64)   platform="Linux_x86_64" ;;
+          Linux/ARM64) platform="Linux_arm64" ;;
+          macOS/X64)   platform="Darwin_x86_64" ;;
+          macOS/ARM64) platform="Darwin_arm64" ;;
+          *)
+            echo "Unsupported runner: ${RUNNER_OS}/${RUNNER_ARCH}" >&2
+            exit 1
+            ;;
+        esac
+
+        version="${YAMLFMT_VERSION#v}"
+        archive="yamlfmt_${version}_${platform}.tar.gz"
+        release_url="https://github.com/google/yamlfmt/releases/download/${YAMLFMT_VERSION}"
+        install_dir="${RUNNER_TEMP}/yamlfmt-${version}"
+        mkdir -p "$install_dir"
+        curl --fail --silent --show-error --location \
+          "${release_url}/${archive}" -o "${install_dir}/${archive}"
+        curl --fail --silent --show-error --location \
+          "${release_url}/checksums.txt" -o "${install_dir}/checksums.txt"
+        checksum_line="$(grep -F "  ${archive}" "${install_dir}/checksums.txt")"
+        if command -v sha256sum >/dev/null 2>&1; then
+          printf '%s\n' "$checksum_line" | (cd "$install_dir" && sha256sum --check --status)
+        else
+          printf '%s\n' "$checksum_line" | (cd "$install_dir" && shasum --algorithm 256 --check --status)
+        fi
+        tar -xzf "${install_dir}/${archive}" -C "$install_dir" yamlfmt
+        chmod +x "${install_dir}/yamlfmt"
+
+        paths=()
+        while IFS= read -r path || [[ -n "$path" ]]; do
+          path="${path#"${path%%[![:space:]]*}"}"
+          path="${path%"${path##*[![:space:]]}"}"
+          [[ -z "$path" ]] && continue
+          paths+=("$path")
+        done <<< "$INPUT_DIRECTORIES"
+
+        if [[ ${#paths[@]} -eq 0 ]]; then
+          echo "No directories or files were provided." >&2
+          exit 1
+        fi
+
+        "${install_dir}/yamlfmt" -lint "${paths[@]}"
