@@ -43,7 +43,7 @@ jobs:
         continue-on-error: true
         with:
           paths: tests/fixtures/formatted.yaml
-          config-file: tests/fixtures/invalid-yamlfmt-config.yaml
+          config-file: tests/fixtures/invalid-yamlfmt-config.conf
 
       - name: Assert configuration error has the expected reason
         if: always()
