@@ -15,6 +15,8 @@ case "${RUNNER_OS}/${RUNNER_ARCH}" in
   *) echo "Unsupported runner: ${RUNNER_OS}/${RUNNER_ARCH}" >&2; set_failure_reason unsupported-runner; exit 1 ;;
 esac
 
+trap 'set_failure_reason install-failed' ERR
+
 version="${YAMLFMT_VERSION#v}"
 version_tag="v${version}"
 archive="yamlfmt_${version}_${platform}.tar.gz"
@@ -44,6 +46,7 @@ if ! (cd "$install_dir" && printf '%s\n' "$checksum_line" | shasum --algorithm 2
 fi
 tar -xzf "${install_dir}/${archive}" -C "$install_dir" yamlfmt
 chmod +x "${install_dir}/yamlfmt"
+trap - ERR
 
 paths=()
 while IFS= read -r path || [[ -n "$path" ]]; do
@@ -72,21 +75,41 @@ fi
 yamlfmt_args=(-lint)
 if [[ -n "$INPUT_CONFIG_FILE" ]]; then yamlfmt_args+=(-conf "$INPUT_CONFIG_FILE"); fi
 if [[ "$INPUT_DSTAR" == "true" ]]; then yamlfmt_args+=(-dstar); fi
-yamlfmt_args+=(-debug paths)
+path_check_args=("${yamlfmt_args[@]}" -debug paths)
+
+# Check each input independently so one matching path cannot hide another
+# input that matched no YAML files. Keep yamlfmt authoritative for expansion.
+for path in "${paths[@]}"; do
+  case "$path" in
+    *'*'*|*'?'*|*'['*|*'{'*) ;;
+    *) [[ -d "$path" ]] || continue ;;
+  esac
+  set +e
+  path_output="$("${install_dir}/yamlfmt" "${path_check_args[@]}" "$path" 2>&1)"
+  set -e
+  if grep -Eq 'paths to format: (map)?\[\]$' <<< "$path_output"; then
+    echo "No YAML files matched the supplied path: ${path}" >&2
+    set_failure_reason no-matches
+    exit 1
+  fi
+done
+
+yamlfmt_stderr_file="${RUNNER_TEMP}/yamlfmt-stderr-${RANDOM}"
 set +e
-yamlfmt_output="$("${install_dir}/yamlfmt" "${yamlfmt_args[@]}" "${paths[@]}" 2>&1)"
+yamlfmt_output="$("${install_dir}/yamlfmt" "${yamlfmt_args[@]}" "${paths[@]}" 2>"$yamlfmt_stderr_file")"
 yamlfmt_status=$?
 set -e
-
-# yamlfmt has no machine-readable match count. This check relies on debug text
-# from the pinned version; CI covers both map and slice empty-list forms.
-if grep -Eq 'paths to format: (map)?\[\]$' <<< "$yamlfmt_output"; then
-  echo "No YAML files matched the supplied paths." >&2
-  set_failure_reason no-matches
-  exit 1
-fi
+yamlfmt_stderr="$(cat "$yamlfmt_stderr_file")"
+rm -f "$yamlfmt_stderr_file"
 
 # Retain the full output above for checks, but omit verbose debug lines in logs.
 grep -v '^\[DEBUG\]' <<< "$yamlfmt_output" || true
-if [[ "$yamlfmt_status" -ne 0 ]]; then set_failure_reason formatting-failed; fi
+grep -v '^\[DEBUG\]' <<< "$yamlfmt_stderr" >&2 || true
+if [[ "$yamlfmt_status" -ne 0 ]]; then
+  if [[ -n "$yamlfmt_stderr" ]]; then
+    set_failure_reason yamlfmt-error
+  else
+    set_failure_reason formatting-failed
+  fi
+fi
 exit "$yamlfmt_status"

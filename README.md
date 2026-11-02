@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: tarasmatsyk/yamlformat-action@v0.3.2
+      - uses: tarasmatsyk/yamlformat-action@v0.3.4
         with:
           paths: |
             charts
@@ -43,10 +43,20 @@ equivalent to `dstar: true`.
 | `config-file` | Config file path, passed to yamlfmt as `-conf` | Auto-discover config |
 | `yamlfmt-version` | yamlfmt release version, with or without a leading `v` | `v0.21.0` |
 
+### Outputs
+
+| Output | Description |
+| --- | --- |
+| `failure-reason` | Reason for failure: `unsupported-runner`, `install-failed`, `checksum-missing`, `checksum-mismatch`, `path-not-found`, `no-paths`, `no-matches`, `formatting-failed`, or `yamlfmt-error`. Empty when the action succeeds. |
+
+`formatting-failed` means YAML files need formatting. `yamlfmt-error` means yamlfmt
+reported an operational, configuration, or YAML parsing error. `install-failed`
+covers failures while downloading, verifying, or unpacking yamlfmt.
+
 For doublestar patterns, set `dstar: true` if it is not already enabled in the config:
 
 ```yaml
-- uses: tarasmatsyk/yamlformat-action@v0.3.2
+- uses: tarasmatsyk/yamlformat-action@v0.3.4
   with:
     paths: |
       charts/**/*.yaml

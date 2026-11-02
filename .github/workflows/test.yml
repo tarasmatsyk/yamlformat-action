@@ -37,6 +37,23 @@ jobs:
           test "$OUTCOME" = failure
           test "$REASON" = formatting-failed
 
+      - name: Reject invalid yamlfmt configuration
+        id: invalid-config
+        uses: ./
+        continue-on-error: true
+        with:
+          paths: tests/fixtures/formatted.yaml
+          config-file: tests/fixtures/invalid-yamlfmt-config.yaml
+
+      - name: Assert configuration error has the expected reason
+        if: always()
+        env:
+          OUTCOME: ${{ steps.invalid-config.outcome }}
+          REASON: ${{ steps.invalid-config.outputs.failure-reason }}
+        run: |
+          test "$OUTCOME" = failure
+          test "$REASON" = yamlfmt-error
+
       - name: Reject patterns with no matches
         id: no-match
         uses: ./
@@ -50,6 +67,25 @@ jobs:
         env:
           OUTCOME: ${{ steps.no-match.outcome }}
           REASON: ${{ steps.no-match.outputs.failure-reason }}
+        run: |
+          test "$OUTCOME" = failure
+          test "$REASON" = no-matches
+
+      - name: Reject one unmatched pattern alongside a matching path
+        id: partial-no-match
+        uses: ./
+        continue-on-error: true
+        with:
+          paths: |
+            tests/fixtures/formatted.yaml
+            tests/fixtures/missing/**/*.yaml
+          dstar: true
+
+      - name: Assert partial glob match failed for the expected reason
+        if: always()
+        env:
+          OUTCOME: ${{ steps.partial-no-match.outcome }}
+          REASON: ${{ steps.partial-no-match.outputs.failure-reason }}
         run: |
           test "$OUTCOME" = failure
           test "$REASON" = no-matches
