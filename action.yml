@@ -89,16 +89,9 @@ runs:
           path="${path%"${path##*[![:space:]]}"}"
           [[ -z "$path" ]] && continue
           case "$path" in
-            *'*'*|*'?'*|*'['*)
-              matches=()
-              while IFS= read -r match; do
-                matches+=("$match")
-              done < <(python3 -c 'import glob, sys; print("\n".join(glob.glob(sys.argv[1], recursive=True)))' "$path")
-              if [[ ${#matches[@]} -eq 0 ]]; then
-                echo "Path pattern matched no files: ${path}" >&2
-                exit 1
-              fi
-              paths+=("${matches[@]}")
+            *'*'*|*'?'*|*'['*|*'{'*)
+              # Leave pattern expansion to yamlfmt so its path semantics stay authoritative.
+              paths+=("$path")
               ;;
             *)
               if [[ ! -e "$path" ]]; then
@@ -122,4 +115,14 @@ runs:
         if [[ "$INPUT_DSTAR" == "true" ]]; then
           yamlfmt_args+=(-dstar)
         fi
-        "${install_dir}/yamlfmt" "${yamlfmt_args[@]}" "${paths[@]}"
+        yamlfmt_args+=(-debug paths)
+        set +e
+        yamlfmt_output="$("${install_dir}/yamlfmt" "${yamlfmt_args[@]}" "${paths[@]}" 2>&1)"
+        yamlfmt_status=$?
+        set -e
+        printf '%s\n' "$yamlfmt_output"
+        if grep -Fq 'paths to format: []' <<< "$yamlfmt_output"; then
+          echo "No YAML files matched the supplied paths." >&2
+          exit 1
+        fi
+        exit "$yamlfmt_status"

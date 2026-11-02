@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: tarasmatsyk/yamlformat-action@v0.3.0
+      - uses: tarasmatsyk/yamlformat-action@v0.3.2
         with:
           paths: |
             charts
@@ -25,9 +25,10 @@ jobs:
           config-file: .github/.yamlfmt
 ```
 
-`paths` accepts newline-separated file paths or directory paths. Directories are searched recursively
-for `.yaml` and `.yml` files in the default mode. The input defaults to `.`. For glob patterns, enable
-`dstar`.
+`paths` accepts newline-separated file paths, directory paths, or glob patterns and passes them
+through to yamlfmt unchanged. Directories are searched recursively for `.yaml` and `.yml` files in
+the default mode. The input defaults to `.`. Set `dstar: true` for doublestar patterns unless
+`doublestar: true` is already set in the yamlfmt config.
 
 `yamlfmt-version` defaults to `v0.21.0`; a leading `v` is optional. If the yamlfmt config has
 `doublestar: true`, pass glob patterns in `paths` instead of directory paths; that config setting is
@@ -37,7 +38,7 @@ equivalent to `dstar: true`.
 
 | Input | Description | Default |
 | --- | --- | --- |
-| `paths` | Newline-separated file or directory paths; glob patterns with `dstar: true` | `.` |
+| `paths` | Newline-separated file, directory, or glob paths | `.` |
 | `dstar` | Enable yamlfmt doublestar glob mode; provide patterns rather than directory paths | `false` |
 | `config-file` | Config file path, passed to yamlfmt as `-conf` | Auto-discover config |
 | `yamlfmt-version` | yamlfmt release version, with or without a leading `v` | `v0.21.0` |
@@ -45,7 +46,7 @@ equivalent to `dstar: true`.
 For doublestar patterns, set `dstar: true` if it is not already enabled in the config:
 
 ```yaml
-- uses: tarasmatsyk/yamlformat-action@v0.3.0
+- uses: tarasmatsyk/yamlformat-action@v0.3.2
   with:
     paths: |
       charts/**/*.yaml

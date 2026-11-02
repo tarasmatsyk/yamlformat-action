@@ -7,6 +7,7 @@ on:
 jobs:
   check:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -16,8 +17,9 @@ jobs:
       - name: Accept formatted YAML
         uses: ./
         with:
-          paths: tests/fixtures/formatted.y*
+          paths: tests/fixtures/**/*.yaml
           config-file: tests/fixtures/yamlfmt-config.yaml
+          yamlfmt-version: 0.21.0
 
       - name: Reject unformatted YAML
         id: unformatted

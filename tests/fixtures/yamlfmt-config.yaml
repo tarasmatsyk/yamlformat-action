@@ -1,1 +1,4 @@
 doublestar: true
+exclude:
+  - tests/fixtures/unformatted.yaml
+  - tests/fixtures/templates/**
