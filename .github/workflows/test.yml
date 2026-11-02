@@ -28,12 +28,14 @@ jobs:
         with:
           paths: tests/fixtures/unformatted.yaml
 
-      - name: Assert unformatted YAML failed
+      - name: Assert unformatted YAML failed for the expected reason
         if: always()
         env:
           OUTCOME: ${{ steps.unformatted.outcome }}
+          REASON: ${{ steps.unformatted.outputs.failure-reason }}
         run: |
           test "$OUTCOME" = failure
+          test "$REASON" = formatting-failed
 
       - name: Reject patterns with no matches
         id: no-match
@@ -43,9 +45,27 @@ jobs:
           paths: tests/fixtures/missing/**/*.yaml
           dstar: true
 
-      - name: Assert empty match failed
+      - name: Assert empty glob failed for the expected reason
         if: always()
         env:
           OUTCOME: ${{ steps.no-match.outcome }}
+          REASON: ${{ steps.no-match.outputs.failure-reason }}
         run: |
           test "$OUTCOME" = failure
+          test "$REASON" = no-matches
+
+      - name: Reject empty folder without doublestar
+        id: empty-folder
+        uses: ./
+        continue-on-error: true
+        with:
+          paths: tests/fixtures/empty
+
+      - name: Assert empty folder failed for the expected reason
+        if: always()
+        env:
+          OUTCOME: ${{ steps.empty-folder.outcome }}
+          REASON: ${{ steps.empty-folder.outputs.failure-reason }}
+        run: |
+          test "$OUTCOME" = failure
+          test "$REASON" = no-matches
