@@ -1,4 +1,4 @@
-name: yamlformat
+name: yamlformat-action
 description: Check YAML formatting in selected directories with Google's yamlfmt
 author: tarasmatsyk
 branding:
