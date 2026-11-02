@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: tarasmatsyk/yamlfmt-action@v1
+      - uses: tarasmatsyk/yamlfmt-action@v0.1.0
         with:
           directories: |
             charts
@@ -30,7 +30,7 @@ Directories are searched recursively for `.yaml` and `.yml` files. It defaults t
 To select a different yamlfmt release:
 
 ```yaml
-- uses: tarasmatsyk/yamlfmt-action@v1
+- uses: tarasmatsyk/yamlfmt-action@v0.1.0
   with:
     directories: charts/my-chart
     yamlfmt-version: v0.20.0
