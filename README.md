@@ -1,13 +1,13 @@
-# yamlfmt GitHub Action
+# yamlfmt action
 
-Check YAML formatting with [Google's yamlfmt](https://github.com/google/yamlfmt). The action searches
-directories recursively for `.yaml` and `.yml` files, and fails if formatting changes are needed.
-It never modifies files. The selected yamlfmt release binary is checksum-verified before use.
+Check YAML formatting with [Google's yamlfmt](https://github.com/google/yamlfmt). The action fails when
+files need formatting and never changes them. It downloads a pinned yamlfmt release and verifies the
+binary archive against the release checksum.
 
 ## Usage
 
 ```yaml
-name: YAML format
+name: YAML formatting
 
 on:
   pull_request:
@@ -17,39 +17,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: personal/tarasmatsyk/yamlfmt-action@v1
+      - uses: tarasmatsyk/yamlfmt-action@v1
         with:
           directories: |
             charts
             deploy/helm
 ```
 
-`directories` defaults to `.` and accepts newline-separated paths, including individual YAML files.
-Paths are resolved from the repository working directory. Select a yamlfmt version explicitly if
-you want to control upgrades:
+`directories` accepts newline-separated file or directory paths, resolved from the repository root.
+Directories are searched recursively for `.yaml` and `.yml` files. It defaults to `.`.
+
+To select a different yamlfmt release:
 
 ```yaml
-- uses: personal/tarasmatsyk/yamlfmt-action@v1
+- uses: tarasmatsyk/yamlfmt-action@v1
   with:
     directories: charts/my-chart
     yamlfmt-version: v0.20.0
 ```
 
-## Configuration and Helm templates
+## Configuration
 
-Put a `.yamlfmt` config file in your repository to control formatting. The action runs yamlfmt from
-the repository root, where yamlfmt can discover the config.
+Add a `.yamlfmt` file at your repository root to configure formatting and which files yamlfmt should
+process. See [yamlfmt configuration](https://github.com/google/yamlfmt/blob/main/docs/config-file.md).
 
-Helm files in `templates/` contain Go template expressions and often are not valid standalone YAML.
-Use yamlfmt configuration to limit matching files or pass narrower directories/files. Run `helm lint`
-separately to validate rendered chart templates.
+Helm chart files in `templates/` may contain Go template expressions and may not be valid YAML until
+Helm renders them. Configure yamlfmt to skip those files or pass paths containing plain YAML, such as
+`values.yaml` and `Chart.yaml`. Use `helm lint` separately to check the chart.
 
 ## Supported runners
 
-Linux x64/ARM64 and macOS x64/ARM64. Windows runners are not currently supported.
-
-## Releasing
-
-Create a release such as `v1.0.0` and a matching git tag. Maintain a `v1` tag for compatible updates,
-so users can reference `personal/tarasmatsyk/yamlfmt-action@v1`. The action version and yamlfmt
-version are separate; the latter is set with `yamlfmt-version`.
+Linux x64/ARM64 and macOS x64/ARM64.
