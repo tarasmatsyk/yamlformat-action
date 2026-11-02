@@ -61,7 +61,7 @@ runs:
         cosign verify-blob "${install_dir}/checksums.txt" \
           --certificate "${install_dir}/checksums.txt.pem" \
           --signature "${install_dir}/checksums.txt.sig" \
-          --certificate-identity-regexp 'https://github\.com/google/yamlfmt/\.github/workflows/.+' \
+          --certificate-identity "https://github.com/google/yamlfmt/.github/workflows/release.yaml@refs/tags/${version_tag}" \
           --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
 
         checksum_line="$(awk -v asset="$archive" '$2 == asset { print $0 }' "${install_dir}/checksums.txt")"
@@ -70,9 +70,15 @@ runs:
           exit 1
         fi
         if command -v sha256sum >/dev/null 2>&1; then
-          printf '%s\n' "$checksum_line" | (cd "$install_dir" && sha256sum --check --status)
+          printf '%s\n' "$checksum_line" | (cd "$install_dir" && sha256sum --check --status) || {
+            echo "Checksum mismatch for ${archive}." >&2
+            exit 1
+          }
         else
-          printf '%s\n' "$checksum_line" | (cd "$install_dir" && shasum --algorithm 256 --check --status)
+          printf '%s\n' "$checksum_line" | (cd "$install_dir" && shasum --algorithm 256 --check --status) || {
+            echo "Checksum mismatch for ${archive}." >&2
+            exit 1
+          }
         fi
         tar -xzf "${install_dir}/${archive}" -C "$install_dir" yamlfmt
         chmod +x "${install_dir}/yamlfmt"
@@ -82,7 +88,26 @@ runs:
           path="${path#"${path%%[![:space:]]*}"}"
           path="${path%"${path##*[![:space:]]}"}"
           [[ -z "$path" ]] && continue
-          paths+=("$path")
+          case "$path" in
+            *'*'*|*'?'*|*'['*)
+              matches=()
+              while IFS= read -r match; do
+                matches+=("$match")
+              done < <(python3 -c 'import glob, sys; print("\n".join(glob.glob(sys.argv[1], recursive=True)))' "$path")
+              if [[ ${#matches[@]} -eq 0 ]]; then
+                echo "Path pattern matched no files: ${path}" >&2
+                exit 1
+              fi
+              paths+=("${matches[@]}")
+              ;;
+            *)
+              if [[ ! -e "$path" ]]; then
+                echo "Path does not exist: ${path}" >&2
+                exit 1
+              fi
+              paths+=("$path")
+              ;;
+          esac
         done <<< "$INPUT_PATHS"
 
         if [[ ${#paths[@]} -eq 0 ]]; then

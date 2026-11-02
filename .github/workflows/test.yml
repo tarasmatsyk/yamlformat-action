@@ -1,0 +1,49 @@
+name: Test action
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Accept formatted YAML
+        uses: ./
+        with:
+          paths: tests/fixtures/formatted.y*
+          config-file: tests/fixtures/yamlfmt-config.yaml
+
+      - name: Reject unformatted YAML
+        id: unformatted
+        uses: ./
+        continue-on-error: true
+        with:
+          paths: tests/fixtures/unformatted.yaml
+
+      - name: Assert unformatted YAML failed
+        if: always()
+        env:
+          OUTCOME: ${{ steps.unformatted.outcome }}
+        run: |
+          test "$OUTCOME" = failure
+
+      - name: Reject patterns with no matches
+        id: no-match
+        uses: ./
+        continue-on-error: true
+        with:
+          paths: tests/fixtures/missing/**/*.yaml
+          dstar: true
+
+      - name: Assert empty match failed
+        if: always()
+        env:
+          OUTCOME: ${{ steps.no-match.outcome }}
+        run: |
+          test "$OUTCOME" = failure

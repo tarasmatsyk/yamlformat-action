@@ -16,8 +16,8 @@ jobs:
   yamlfmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: tarasmatsyk/yamlformat-action@v0.1.0
+      - uses: actions/checkout@v7
+      - uses: tarasmatsyk/yamlformat-action@v0.3.0
         with:
           paths: |
             charts
@@ -29,7 +29,9 @@ jobs:
 for `.yaml` and `.yml` files in the default mode. The input defaults to `.`. For glob patterns, enable
 `dstar`.
 
-`yamlfmt-version` defaults to `v0.21.0`; a leading `v` is optional.
+`yamlfmt-version` defaults to `v0.21.0`; a leading `v` is optional. If the yamlfmt config has
+`doublestar: true`, pass glob patterns in `paths` instead of directory paths; that config setting is
+equivalent to `dstar: true`.
 
 ### Inputs
 
@@ -40,10 +42,10 @@ for `.yaml` and `.yml` files in the default mode. The input defaults to `.`. For
 | `config-file` | Config file path, passed to yamlfmt as `-conf` | Auto-discover config |
 | `yamlfmt-version` | yamlfmt release version, with or without a leading `v` | `v0.21.0` |
 
-For doublestar patterns, set `dstar: true`:
+For doublestar patterns, set `dstar: true` if it is not already enabled in the config:
 
 ```yaml
-- uses: tarasmatsyk/yamlformat-action@v0.1.0
+- uses: tarasmatsyk/yamlformat-action@v0.3.0
   with:
     paths: |
       charts/**/*.yaml
